@@ -1,0 +1,29 @@
+# Worker de separación de pistas para RunPod Serverless.
+#
+# IMPORTANTE: la RTX 5090 es arquitectura Blackwell (sm_120) y necesita CUDA 12.8+
+# y un PyTorch compilado para esa versión. Por eso se parte de una imagen CUDA 12.8.
+# Si usas otra GPU (4090, A100, etc.) puedes bajar a una imagen CUDA 12.1.
+FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    MODEL_DIR=/models \
+    HF_HOME=/models/hf \
+    TORCH_HOME=/models/torch
+
+# ffmpeg y libsndfile son necesarios para leer/escribir audio.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ffmpeg libsndfile1 git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Caché persistente de los pesos de los modelos (se puede montar en un Network Volume).
+RUN mkdir -p /models
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY handler.py .
+
+CMD ["python", "-u", "handler.py"]

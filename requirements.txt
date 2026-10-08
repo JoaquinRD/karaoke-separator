@@ -1,0 +1,4 @@
+runpod
+demucs>=4.0.0
+audio-separator[gpu]
+soundfile

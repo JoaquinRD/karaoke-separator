@@ -44,6 +44,25 @@ Salida con error: `{ "error": "..." }`.
 
 Las pistas quedan escritas en el Network Volume y la app las descarga por la API S3.
 
+## Tarea de render de video
+
+Con `"task": "render"`, el worker ejecuta ffmpeg (con `cwd` en el directorio de
+trabajo del volumen) sobre los argumentos que le manda la app:
+
+```json
+{
+  "task": "render",
+  "workdir": "karaoke/render/<job>",
+  "args": ["-y", "-i", "video.mp4", "-i", "instrumental.mp3", "-filter_complex", "...", "karaoke.mp4"],
+  "output": "karaoke.mp4"
+}
+```
+
+Salida: `{ "video_key": "karaoke/render/<job>/karaoke.mp4", "elapsed_seconds": 42.1 }`.
+
+La imagen incluye `fonts-liberation` (sustituto métricamente compatible de Arial)
+para que los subtítulos se vean igual que en Windows.
+
 ## Despliegue (resumen)
 
 1. Crea el repositorio/imagen con estos archivos.

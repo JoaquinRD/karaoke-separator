@@ -14,8 +14,9 @@ ENV PYTHONUNBUFFERED=1 \
 
 # ffmpeg y libsndfile son necesarios para leer/escribir audio.
 # build-essential aporta gcc/g++, que algunas dependencias (p. ej. diffq) necesitan para compilar.
+# fonts-liberation es el sustituto métricamente compatible de Arial para los subtítulos (libass).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ffmpeg libsndfile1 build-essential git \
+        ffmpeg libsndfile1 build-essential git fontconfig fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

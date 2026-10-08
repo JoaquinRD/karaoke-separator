@@ -1,6 +1,7 @@
 import glob
 import os
 import shutil
+import subprocess
 import tempfile
 import time
 import traceback
@@ -11,6 +12,10 @@ import runpod
 VOLUME_PATH = os.environ.get("VOLUME_PATH", "/runpod-volume")
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".opus"}
 
+
+# ---------------------------------------------------------------------------
+# Separación de pistas (Demucs / UVR)
+# ---------------------------------------------------------------------------
 
 def _classify(path):
     """Devuelve (es_voz, es_instrumental) a partir del nombre del archivo."""
@@ -79,10 +84,7 @@ def _run_uvr(input_path, output_dir, model, preset, output_format, model_dir):
     )
 
 
-def handler(event):
-    started = time.time()
-    inp = (event or {}).get("input") or {}
-
+def _separate(inp, started):
     input_key = inp.get("input_key")
     if not input_key:
         return {"error": "Falta 'input_key' en la entrada."}
@@ -139,6 +141,60 @@ def handler(event):
         "model": model,
         "elapsed_seconds": round(time.time() - started, 2),
     }
+
+
+# ---------------------------------------------------------------------------
+# Render del video karaoke (ffmpeg)
+# ---------------------------------------------------------------------------
+
+def _render(inp, started):
+    workdir = str(inp.get("workdir") or "").strip("/")
+    args = inp.get("args")
+    output_name = os.path.basename(str(inp.get("output") or "karaoke.mp4"))
+
+    if not workdir or not isinstance(args, list) or not args:
+        return {"error": "Faltan 'workdir' o 'args' para el render."}
+
+    cwd = os.path.join(VOLUME_PATH, workdir)
+    if not os.path.isdir(cwd):
+        return {"error": f"No existe el directorio de trabajo en el volumen: {workdir}"}
+
+    if shutil.which("ffmpeg") is None:
+        return {"error": "ffmpeg no está disponible en el worker."}
+
+    try:
+        proc = subprocess.run(
+            ["ffmpeg", *[str(a) for a in args]],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+        )
+    except Exception as ex:  # noqa: BLE001
+        traceback.print_exc()
+        return {"error": f"{type(ex).__name__}: {ex}"}
+
+    if proc.returncode != 0:
+        return {"error": f"ffmpeg falló (código {proc.returncode}): {proc.stderr[-1500:]}"}
+
+    video_path = os.path.join(cwd, output_name)
+    if not os.path.isfile(video_path):
+        return {"error": "ffmpeg terminó pero no generó el video."}
+
+    return {
+        "video_key": f"{workdir}/{output_name}",
+        "elapsed_seconds": round(time.time() - started, 2),
+    }
+
+
+def handler(event):
+    started = time.time()
+    inp = (event or {}).get("input") or {}
+    task = str(inp.get("task") or "separate").lower()
+
+    if task == "render":
+        return _render(inp, started)
+
+    return _separate(inp, started)
 
 
 runpod.serverless.start({"handler": handler})

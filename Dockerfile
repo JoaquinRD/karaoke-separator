@@ -7,18 +7,16 @@ FROM pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    MODEL_DIR=/models \
-    HF_HOME=/models/hf \
-    TORCH_HOME=/models/torch
+    VOLUME_PATH=/runpod-volume \
+    MODEL_DIR=/runpod-volume/models \
+    HF_HOME=/runpod-volume/models/hf \
+    TORCH_HOME=/runpod-volume/models/torch
 
 # ffmpeg y libsndfile son necesarios para leer/escribir audio.
 # build-essential aporta gcc/g++, que algunas dependencias (p. ej. diffq) necesitan para compilar.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg libsndfile1 build-essential git \
     && rm -rf /var/lib/apt/lists/*
-
-# Caché persistente de los pesos de los modelos (se puede montar en un Network Volume).
-RUN mkdir -p /models
 
 WORKDIR /app
 

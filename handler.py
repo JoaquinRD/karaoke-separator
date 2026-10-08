@@ -159,12 +159,13 @@ def _render(inp, started):
     if not os.path.isdir(cwd):
         return {"error": f"No existe el directorio de trabajo en el volumen: {workdir}"}
 
-    if shutil.which("ffmpeg") is None:
-        return {"error": "ffmpeg no está disponible en el worker."}
+    ffmpeg_bin = os.environ.get("FFMPEG_BIN", "ffmpeg")
+    if shutil.which(ffmpeg_bin) is None and not os.path.isfile(ffmpeg_bin):
+        return {"error": f"ffmpeg no está disponible en el worker ({ffmpeg_bin})."}
 
     try:
         proc = subprocess.run(
-            ["ffmpeg", *[str(a) for a in args]],
+            [ffmpeg_bin, *[str(a) for a in args]],
             cwd=cwd,
             capture_output=True,
             text=True,

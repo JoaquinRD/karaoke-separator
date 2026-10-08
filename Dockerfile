@@ -12,8 +12,9 @@ ENV PYTHONUNBUFFERED=1 \
     TORCH_HOME=/models/torch
 
 # ffmpeg y libsndfile son necesarios para leer/escribir audio.
+# build-essential aporta gcc/g++, que algunas dependencias (p. ej. diffq) necesitan para compilar.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ffmpeg libsndfile1 git \
+        ffmpeg libsndfile1 build-essential git \
     && rm -rf /var/lib/apt/lists/*
 
 # Caché persistente de los pesos de los modelos (se puede montar en un Network Volume).

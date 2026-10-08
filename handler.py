@@ -1,12 +1,14 @@
-import base64
 import glob
 import os
+import shutil
 import tempfile
 import time
 import traceback
 
 import runpod
 
+# El Network Volume se monta aquí dentro del worker Serverless.
+VOLUME_PATH = os.environ.get("VOLUME_PATH", "/runpod-volume")
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".opus"}
 
 
@@ -81,31 +83,34 @@ def handler(event):
     started = time.time()
     inp = (event or {}).get("input") or {}
 
-    audio_b64 = inp.get("audio_base64")
-    if not audio_b64:
-        return {"error": "Falta 'audio_base64' en la entrada."}
+    input_key = inp.get("input_key")
+    if not input_key:
+        return {"error": "Falta 'input_key' en la entrada."}
 
+    output_prefix = (inp.get("output_prefix") or os.path.dirname(input_key)).strip("/")
     engine = str(inp.get("engine") or "demucs").lower()
     model = inp.get("model") or "htdemucs"
     preset = bool(inp.get("preset"))
     output_format = inp.get("output_format") or "mp3"
     bitrate = str(inp.get("bitrate") or "320")
-    model_dir = os.environ.get("MODEL_DIR", "/models")
+    model_dir = os.environ.get("MODEL_DIR", os.path.join(VOLUME_PATH, "models"))
+
+    source = os.path.join(VOLUME_PATH, input_key.lstrip("/"))
+    if not os.path.isfile(source):
+        return {"error": f"No existe el archivo de entrada en el volumen: {input_key}"}
 
     work = tempfile.mkdtemp(prefix="sep_")
-    filename = inp.get("filename") or "input.mp3"
-    input_path = os.path.join(work, os.path.basename(filename))
-    with open(input_path, "wb") as fh:
-        fh.write(base64.b64decode(audio_b64))
+    local_input = os.path.join(work, os.path.basename(input_key))
+    shutil.copyfile(source, local_input)
 
     output_dir = os.path.join(work, "out")
     os.makedirs(output_dir, exist_ok=True)
 
     try:
         if engine == "uvr":
-            _run_uvr(input_path, output_dir, model, preset, output_format, model_dir)
+            _run_uvr(local_input, output_dir, model, preset, output_format, model_dir)
         else:
-            _run_demucs(input_path, output_dir, model, output_format, bitrate)
+            _run_demucs(local_input, output_dir, model, output_format, bitrate)
     except Exception as ex:  # noqa: BLE001 - se reporta al cliente tal cual
         traceback.print_exc()
         return {"error": f"{type(ex).__name__}: {ex}"}
@@ -114,16 +119,22 @@ def handler(event):
     if not vocals or not instrumental:
         return {"error": "La separación no generó ambas pistas."}
 
-    with open(vocals, "rb") as fh:
-        vocals_b64 = base64.b64encode(fh.read()).decode("ascii")
-    with open(instrumental, "rb") as fh:
-        instrumental_b64 = base64.b64encode(fh.read()).decode("ascii")
+    volume_output = os.path.join(VOLUME_PATH, output_prefix)
+    os.makedirs(volume_output, exist_ok=True)
+
+    vocals_ext = os.path.splitext(vocals)[1].lower()
+    instrumental_ext = os.path.splitext(instrumental)[1].lower()
+    vocals_key = f"{output_prefix}/vocals{vocals_ext}"
+    instrumental_key = f"{output_prefix}/instrumental{instrumental_ext}"
+
+    shutil.copyfile(vocals, os.path.join(VOLUME_PATH, vocals_key))
+    shutil.copyfile(instrumental, os.path.join(VOLUME_PATH, instrumental_key))
 
     return {
-        "vocals_base64": vocals_b64,
-        "instrumental_base64": instrumental_b64,
-        "vocals_ext": os.path.splitext(vocals)[1].lower(),
-        "instrumental_ext": os.path.splitext(instrumental)[1].lower(),
+        "vocals_key": vocals_key,
+        "instrumental_key": instrumental_key,
+        "vocals_ext": vocals_ext,
+        "instrumental_ext": instrumental_ext,
         "engine": engine,
         "model": model,
         "elapsed_seconds": round(time.time() - started, 2),

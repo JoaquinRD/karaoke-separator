@@ -11,15 +11,18 @@ le manda el audio en base64 y recibe de vuelta las dos pistas en base64.
 
 ## Esquema de entrada/salida
 
+El audio no viaja dentro de la petición: primero se sube al **Network Volume**
+(montado en `/runpod-volume`) y al worker solo se le pasa la ruta.
+
 Entrada (`input`):
 
 ```json
 {
-  "audio_base64": "<audio en base64>",
-  "filename": "original.mp3",
-  "engine": "demucs",          // "demucs" | "uvr"
-  "model": "htdemucs",         // archivo o preset del modelo
-  "preset": false,             // true para el ensamble de UVR
+  "input_key": "karaoke/<job>/input.mp3",      // ruta en el volumen
+  "output_prefix": "karaoke/<job>",            // carpeta destino en el volumen
+  "engine": "demucs",                          // "demucs" | "uvr"
+  "model": "htdemucs",                         // archivo o preset del modelo
+  "preset": false,                             // true para el ensamble de UVR
   "output_format": "mp3",
   "bitrate": "320"
 }
@@ -29,8 +32,8 @@ Salida correcta:
 
 ```json
 {
-  "vocals_base64": "...",
-  "instrumental_base64": "...",
+  "vocals_key": "karaoke/<job>/vocals.mp3",
+  "instrumental_key": "karaoke/<job>/instrumental.mp3",
   "vocals_ext": ".mp3",
   "instrumental_ext": ".mp3",
   "elapsed_seconds": 18.4
@@ -38,6 +41,8 @@ Salida correcta:
 ```
 
 Salida con error: `{ "error": "..." }`.
+
+Las pistas quedan escritas en el Network Volume y la app las descarga por la API S3.
 
 ## Despliegue (resumen)
 

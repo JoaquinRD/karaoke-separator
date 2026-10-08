@@ -3,7 +3,7 @@
 # IMPORTANTE: la RTX 5090 es arquitectura Blackwell (sm_120) y necesita CUDA 12.8+
 # y un PyTorch compilado para esa versión. Por eso se parte de una imagen CUDA 12.8.
 # Si usas otra GPU (4090, A100, etc.) puedes bajar a una imagen CUDA 12.1.
-FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime
+FROM pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
